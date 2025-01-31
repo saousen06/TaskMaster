@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMaster</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            margin: 20px;
+            background-color: #ffffff;
+            color: #567c8d;
+            line-height: 1.6;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #c8d9e6;
+            margin-bottom: 20px;
+        }
+
+        form {
+            background: #f5efeb;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto 20px;
+        }
+
+        form h2 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            color: #567c8d;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, textarea, button {
+            width: 96%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+            font-family: 'Times New Roman', serif; 
+        }
+
+        button {
+            background-color: #567c8d;
+            width: 100%;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #c8d9e6;
+        }
+
+        #taskList {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .task {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .task h3 {
+            margin: 0 0 10px;
+            font-size: 1.25em;
+            color: #222;
+        }
+
+        .task p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .task-actions {
+            text-align: right;
+        }
+
+        .task-actions button {
+            background-color: #567c8d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-left: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .task-actions button:hover {
+            background-color: #862c35;
+        }
+
+        .task-actions .delete {
+            background-color: #862c35;
+        }
+
+        .task-actions .delete:hover {
+            background-color: #862c35;
+        }
+    </style>
+</head>
+<body>
+    <h1>TaskMaster</h1>
+    <form id="taskForm">
+        <h2>Create Task</h2>
+        <label for="title">Title:</label>
+        <input type="text" id="title" name="title" placeholder="Enter task title" required>
+        
+        <label for="description">Description:</label>
+        <textarea id="description" name="description" rows="4" placeholder="Enter task description" required></textarea>
+        
+        <label for="dueDate">Due Date:</label>
+        <input type="date" id="dueDate" name="dueDate" required>
+        
+        <button type="submit">Add Task</button>
+    </form>
+
+    <h2>Tasks</h2>
+    <div id="taskList"></div>
+
+    <script>
+        const taskForm = document.getElementById('taskForm');
+        const taskList = document.getElementById('taskList');
+
+        // Fetch tasks from the backend
+        async function fetchTasks() {
+            try {
+                const response = await fetch('http://localhost:5000/tasks');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch tasks');
+                }
+                const tasks = await response.json();
+
+                taskList.innerHTML = '';
+                if (Array.isArray(tasks) && tasks.length > 0) {
+                    tasks.forEach(task => {
+                        const taskDiv = document.createElement('div');
+                        taskDiv.className = 'task';
+                        taskDiv.innerHTML = `
+                            <h3>${task.title}</h3>
+                            <p>${task.description}</p>
+                            <p>Due Date: ${task.dueDate}</p>
+                            <p>Status: ${task.status}</p>
+                            <div class="task-actions">
+                                <button onclick="deleteTask(${task.id})">Delete</button>
+                                <button onclick="editTask(${task.id})">Edit</button>
+                            </div>
+                        `;
+                        taskList.appendChild(taskDiv);
+                    });
+                } else {
+                    taskList.innerHTML = "<p>No tasks available.</p>";
+                }
+            } catch (error) {
+                console.error('Error fetching tasks:', error);
+                taskList.innerHTML = "<p>Error loading tasks.</p>";
+            }
+        }
+
+        // Add a new task
+        taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const dueDate = document.getElementById('dueDate').value;
+            const status = 'Pending'; // Default status
+
+            try {
+                const response = await fetch('http://localhost:5000/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, description, dueDate, status }),
+                });
+
+                if (response.ok) {
+                    fetchTasks(); // Refresh the task list
+                    taskForm.reset(); // Clear the form fields
+                } else {
+                    throw new Error('Failed to add task');
+                }
+            } catch (error) {
+                console.error('Error adding task:', error);
+            }
+        });
+
+        // Delete a task
+        async function deleteTask(id) {
+            try {
+                const response = await fetch(`http://localhost:5000/tasks/${id}`, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    fetchTasks(); // Refresh the task list after deletion
+                } else {
+                    throw new Error('Failed to delete task');
+                }
+            } catch (error) {
+                console.error('Error deleting task:', error);
+            }
+        }
+
+        // Edit a task
+        async function editTask(id) {
+            const title = prompt("Enter new title:");
+            const description = prompt("Enter new description:");
+            const dueDate = prompt("Enter new due date:");
+            const status = prompt("Enter new status:");
+
+            const updatedData = {
+                title: title || '',  // Default to empty string if cancelled
+                description: description || '',
+                dueDate: dueDate || '',
+                status: status || 'Pending',  // Default status is 'Pending'
+            };
+
+            const response = await fetch(`http://localhost:5000/tasks/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedData),
+            });
+
+            if (response.ok) {
+                console.log("Task updated successfully");
+                fetchTasks();  // Refresh the tasks after update
+            } else {
+                console.log("Failed to update task");
+            }
+        }
+
+        // Initially fetch tasks when the page loads
+        fetchTasks();
+    </script>
+</body>
+</html>
